@@ -34,7 +34,7 @@ const Chatbot = () => {
     setUserInput(""); // Clear input box
   
     try {
-      console.log("Sending request to backend:", message); // ✅ Debugging
+      console.log("Sending request to backend:", message); // Debugging
   
       const response = await fetch("http://127.0.0.1:8000/chat", {
         method: "POST",
@@ -43,7 +43,7 @@ const Chatbot = () => {
       });
   
       const data = await response.json();
-      console.log("API Response:", data); // ✅ Debugging
+      console.log("API Response:", data); // Debugging
   
       if (data.answer) {
         setMessages([...newMessages, { text: data.answer, sender: "bot" }]);
