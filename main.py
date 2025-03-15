@@ -50,13 +50,15 @@ def chat_response(request: QuestionRequest):
 
 
 # API to get common questions
-@app.get("/common_questions")
-def common_questions():
-    faqs = get_faqs()
-    return {"questions": list(faqs.keys())}
-
-# Enable logging to see errors
-logging.basicConfig(level=logging.DEBUG)
+@app.get("/recommended-questions")
+def get_recommended_questions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, question_text FROM recommended_questions ORDER BY RANDOM() LIMIT 5;")
+    questions = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [{"id": q[0], "text": q[1]} for q in questions]
 
 @app.get("/")
 def home():
