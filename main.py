@@ -52,7 +52,7 @@ def chat_response(request: QuestionRequest):
 # API to get common questions
 @app.get("/recommended-questions")
 def get_recommended_questions():
-    conn = get_db_connection()
+    conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, question_text FROM recommended_questions ORDER BY RANDOM() LIMIT 5;")
     questions = cur.fetchall()
