@@ -4,7 +4,6 @@ from rapidfuzz import process
 import database  # Import database connection
 import logging
 from database import get_db  # Import your database connection function
-from fuzzywuzzy import process
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -53,12 +52,20 @@ def chat_response(request: QuestionRequest):
 @app.get("/recommended-questions")
 def get_recommended_questions():
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT id, question_text FROM recommended_questions ORDER BY RANDOM() LIMIT 5;")
-    questions = cur.fetchall()
-    cur.close()
-    conn.close()
-    return [{"id": q[0], "text": q[1]} for q in questions]
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, question_text FROM faqs ORDER BY RANDOM() LIMIT 5;")
+            questions = cur.fetchall()
+            return [{"id": q["id"], "text": q["question_text"]} for q in questions]
+    except Exception as e:
+        print("Database error:", e)
+        raise HTTPException(status_code=500, detail="Error fetching recommended questions")
+    finally:
+        conn.close()
+
 
 @app.get("/")
 def home():
