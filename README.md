@@ -1,5 +1,5 @@
 # Chatbot_test_deploy
-This is a demo app for a bigger project that simply fetches the data of a set of FAQs from the database and finds the best match answer for it. Thanks for reading!
+This is a demo app for a bigger project that creates a Chatbot that fetches the data of a set of FAQs from the database and finds the best match answer for it. Thanks for reading!
 
 
 To set up:
