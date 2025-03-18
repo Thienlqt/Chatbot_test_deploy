@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 const Chatbot = () => {
   const [messages, setMessages] = useState([
@@ -6,80 +7,59 @@ const Chatbot = () => {
   ]);
   const [userInput, setUserInput] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [categories, setCategories] = useState([]);
   const [recommendedQuestions, setRecommendedQuestions] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
-  // Function to toggle chat visibility
+  // Toggle chat visibility
   const toggleChat = () => {
     setIsOpen(!isOpen);
-    if (!isOpen) fetchRecommendedQuestions(); // Fetch recommended questions only when opening chat
+    if (!isOpen) fetchCategories();
   };
 
-  // Fetch recommended questions from backend
-  const fetchRecommendedQuestions = async () => {
+  // Fetch categories from backend
+  const fetchCategories = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/recommended-questions");
-      const data = await response.json();
-      setRecommendedQuestions(data);
+      const response = await axios.get("http://127.0.0.1:8000/categories");
+      setCategories(response.data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  // Fetch recommended questions when a category is clicked
+  const fetchRecommendedQuestions = async (categoryId) => {
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/recommended-questions?category_id=${categoryId}`);
+      setRecommendedQuestions(response.data);
+      setSelectedCategory(categoryId);
     } catch (error) {
       console.error("Error fetching recommended questions:", error);
     }
   };
 
-  // Function to send user message
+  // Send user message
   const sendMessage = async (message) => {
     if (!message.trim()) return;
-  
+
     const newMessages = [...messages, { text: message, sender: "user" }];
     setMessages(newMessages);
-    setUserInput(""); // Clear input box
-  
+    setUserInput("");
+
     try {
-      console.log("Sending request to backend:", message); // Debugging
-  
-      const response = await fetch("http://127.0.0.1:8000/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: message }),
-      });
-  
-      const data = await response.json();
-      console.log("API Response:", data); // Debugging
-  
-      if (data.answer) {
-        setMessages([...newMessages, { text: data.answer, sender: "bot" }]);
-      } else {
-        setMessages([...newMessages, { text: "Oops! No response from bot.", sender: "bot" }]);
-      }
+      const response = await axios.post("http://127.0.0.1:8000/chat", { question: message });
+      setMessages([...newMessages, { text: response.data.answer, sender: "bot" }]);
     } catch (error) {
       console.error("Error fetching response:", error);
       setMessages([...newMessages, { text: "Oops! Something went wrong.", sender: "bot" }]);
     }
   };
 
-  // Handle recommended question click (now sends immediately)
-  const handleRecommendedQuestionClick = (question) => {
-    setUserInput(question);
-    sendMessage(question); // Sends the question immediately
-  };
-
-  // Handle Enter key press to send message
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault(); // Prevent new line
-      sendMessage(userInput);
-    }
-  };
-
   return (
     <div style={styles.container}>
-      {/* Chatbot Icon (Button to Open/Close Chat) */}
       {!isOpen && (
-        <button onClick={toggleChat} style={styles.chatIcon}>
-          💬 Chat
-        </button>
+        <button onClick={toggleChat} style={styles.chatIcon}>💬 Chat</button>
       )}
-
-      {/* Chat Window */}
       {isOpen && (
         <div style={styles.chatboxContainer}>
           <div style={styles.chatboxHeader}>
@@ -87,47 +67,45 @@ const Chatbot = () => {
             <button onClick={toggleChat} style={styles.closeButton}>✖</button>
           </div>
 
-          {/* Recommended Questions */}
-          <div style={styles.recommendations}>
-            <h4>Recommended Questions:</h4>
-            <ul>
-              {recommendedQuestions.map((q) => (
-                <li 
-                  key={q.id} 
-                  onClick={() => handleRecommendedQuestionClick(q.text)} 
-                  style={styles.recommendationItem}
-                >
-                  {q.text}
-                </li>
+          {/* Categories Section */}
+          <div style={styles.categories}>
+            <h4>FAQs Common Categories:</h4>
+            <div style={styles.categoryContainer}>
+              {categories.map((category) => (
+                <button key={category.id} onClick={() => fetchRecommendedQuestions(category.id)} style={styles.categoryBox}>
+                  {category.name}
+                </button>
               ))}
-            </ul>
+            </div>
           </div>
+
+          {/* Recommended Questions Section */}
+          {selectedCategory && (
+            <div style={styles.recommendations}>
+              <h4>Recommended Questions:</h4>
+              <div style={styles.recommendationContainer}>
+                {recommendedQuestions.map((q) => (
+                  <button key={q.id} onClick={() => sendMessage(q.text)} style={styles.recommendationBox}>
+                    {q.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Chat Messages */}
           <div style={styles.chatbox}>
             {messages.map((msg, index) => (
-              <div
-                key={index}
-                style={msg.sender === "bot" ? styles.botMessage : styles.userMessage}
-              >
+              <div key={index} style={msg.sender === "bot" ? styles.botMessage : styles.userMessage}>
                 {msg.text}
               </div>
             ))}
           </div>
 
-          {/* User Input Field */}
+          {/* User Input */}
           <div style={styles.inputArea}>
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={handleKeyPress} // Press Enter to send message
-              placeholder="Type your question..."
-              style={styles.input}
-            />
-            <button onClick={() => sendMessage(userInput)} style={styles.button}>
-              Send
-            </button>
+            <input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Type your question..." style={styles.input} />
+            <button onClick={() => sendMessage(userInput)} style={styles.button}>Send</button>
           </div>
         </div>
       )}
@@ -135,93 +113,123 @@ const Chatbot = () => {
   );
 };
 
-// Styling
+// Styles
 const styles = {
   container: {
     position: "fixed",
     bottom: "20px",
-    right: "20px",
+    right: "20px", // Moves chatbot to bottom-left corner
+    zIndex: 1000,
   },
   chatIcon: {
-    padding: "10px 15px",
-    borderRadius: "20px",
-    border: "none",
     backgroundColor: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "50%",
+    padding: "15px",
+    fontSize: "18px",
+    cursor: "pointer",
+  },
+  chatboxContainer: {
+    width: "320px",
+    backgroundColor: "white",
+    boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
+    borderRadius: "8px",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  chatboxHeader: {
+    backgroundColor: "#007bff",
+    color: "white",
+    padding: "10px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  closeButton: {
+    background: "none",
+    border: "none",
     color: "white",
     fontSize: "16px",
     cursor: "pointer",
   },
-  chatboxContainer: {
-    width: "350px",
-    border: "1px solid #ccc",
-    borderRadius: "10px",
+  categories: {
     padding: "10px",
-    backgroundColor: "#f9f9f9",
-    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
   },
-  chatboxHeader: {
+  categoryContainer: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: "10px",
-    borderBottom: "1px solid #ddd",
+    flexWrap: "wrap",
+    gap: "10px",
   },
-  closeButton: {
-    border: "none",
-    background: "none",
-    fontSize: "16px",
+  categoryBox: {
+    padding: "8px 12px",
+    backgroundColor: "#f1f1f1",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
     cursor: "pointer",
+    textAlign: "center",
+    flex: "1 1 calc(50% - 10px)",
   },
   recommendations: {
-    marginBottom: "10px",
+    padding: "10px",
   },
-  recommendationItem: {
+  recommendationContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  recommendationBox: {
+    padding: "8px 12px",
+    backgroundColor: "#e7f3ff",
+    borderRadius: "5px",
+    border: "1px solid #007bff",
     cursor: "pointer",
-    color: "#007bff",
-    textDecoration: "underline",
-    marginBottom: "5px",
+    textAlign: "center",
+    flex: "1 1 calc(50% - 10px)",
   },
   chatbox: {
-    height: "250px",
-    overflowY: "auto",
+    flex: 1,
     padding: "10px",
-    display: "flex",
-    flexDirection: "column",
+    overflowY: "auto",
+    maxHeight: "250px",
+    borderTop: "1px solid #ccc",
   },
   botMessage: {
-    backgroundColor: "#e0e0e0",
-    padding: "10px",
-    borderRadius: "10px",
-    marginBottom: "5px",
+    backgroundColor: "#e7f3ff",
+    padding: "8px",
+    borderRadius: "5px",
+    margin: "5px 0",
     alignSelf: "flex-start",
   },
   userMessage: {
     backgroundColor: "#007bff",
     color: "white",
-    padding: "10px",
-    borderRadius: "10px",
-    marginBottom: "5px",
+    padding: "8px",
+    borderRadius: "5px",
+    margin: "5px 0",
     alignSelf: "flex-end",
   },
   inputArea: {
     display: "flex",
-    marginTop: "10px",
+    padding: "10px",
+    borderTop: "1px solid #ccc",
   },
   input: {
     flex: 1,
-    padding: "10px",
+    padding: "8px",
     borderRadius: "5px",
     border: "1px solid #ccc",
   },
   button: {
     marginLeft: "5px",
-    padding: "10px",
-    border: "none",
     backgroundColor: "#007bff",
     color: "white",
+    border: "none",
+    padding: "8px 12px",
     borderRadius: "5px",
     cursor: "pointer",
-  },
+  }
 };
 
 export default Chatbot;
